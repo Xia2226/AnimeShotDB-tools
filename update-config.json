@@ -1,0 +1,18 @@
+{
+    "subject_dump":  "resources/subject.jsonlines",
+    "anidb_titles":  "resources/anime-titles.xml",
+    "anime_map":  "resources/anime_map.json",
+    "current_dataset":  "resources/fancaps_anime_images.jsonl",
+    "base_cutoff":  "2026-08-04",
+    "to_date":  "",
+    "min_done":  100,
+    "delay_ms":  3000,
+    "timeout_ms":  45000,
+    "retries":  2,
+    "max_show_pages":  30,
+    "connectivity_test":  true,
+    "connectivity_test_limit":  1,
+    "accept_first_ambiguous":  false,
+    "fancaps_http_transport":  "curl",
+    "fancaps_user_agent":  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
+}

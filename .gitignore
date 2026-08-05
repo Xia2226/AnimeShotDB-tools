@@ -1,0 +1,12 @@
+# 依赖
+node_modules/
+
+# 运行产物（更新/补抓/构建生成）
+output/
+public/
+resources/generated/
+
+# 大数据源（体积过大或可重新获取，见 README「数据来源」）
+resources/subject.jsonlines
+resources/anime-titles.xml
+resources/anime_map.json

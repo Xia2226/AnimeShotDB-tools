@@ -1,0 +1,17 @@
+{
+  "name": "animeshotdb",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Portable incremental updater for fancaps_anime_images.jsonl",
+  "scripts": {
+    "test-fancaps": "node tools/test-fancaps-search.mjs",
+    "retry-fancaps": "node tools/retry-fancaps-missing.mjs",
+    "build:data": "node tools/build-anime-library.mjs",
+    "check:data": "node tools/build-anime-library.mjs --check"
+  },
+  "dependencies": {
+    "cheerio": "1.1.2",
+    "undici": "^7.12.0"
+  }
+}
