@@ -8,6 +8,7 @@ import readline from "node:readline";
 import { promisify } from "node:util";
 import zlib from "node:zlib";
 import { load } from "cheerio";
+import { AmbiguousMatchError, chooseFanCapsResult } from "./fancaps-result-score.mjs";
 
 const FANCAPS_BASE = "https://fancaps.net";
 const FANCAPS_IMAGE_HOST = "cdni.fancaps.net";
@@ -28,8 +29,6 @@ class HttpError extends Error {
     this.status = status;
   }
 }
-
-class AmbiguousMatchError extends Error {}
 class CliError extends Error {}
 
 process.on("uncaughtException", (error) => {
@@ -393,7 +392,7 @@ async function crawlFanCaps(target, config, titleCandidates = []) {
 
   let lastResult = null;
   for (const query of queries) {
-    const result = await crawlByQuery(target, query, config);
+    const result = await crawlByQuery(target, query, config, titleCandidates);
     if (result.status === "ok") return result;
     lastResult = result;
   }
@@ -408,7 +407,7 @@ async function crawlFanCaps(target, config, titleCandidates = []) {
   return lastResult;
 }
 
-async function crawlByQuery(target, query, config) {
+async function crawlByQuery(target, query, config, titleCandidates = []) {
   const searchUrl = `${FANCAPS_BASE}/search.php?q=${encodeURIComponent(query)}&animeCB=Anime&submit=Submit`;
   const searchHtml = await fetchText(searchUrl, config);
   const results = parseSearchResults(searchHtml, searchUrl);
@@ -417,7 +416,7 @@ async function crawlByQuery(target, query, config) {
     return makeNotFoundRecord(target, searchUrl, `FanCaps 无查询 "${query}" 的搜索结果`);
   }
 
-  const selected = chooseFanCapsResult(results, target, config);
+  const selected = chooseFanCapsResult(results, target, config, titleCandidates, query);
   const images = await collectShowImages(selected.url, config);
   if (!images.length) {
     return makeNotFoundRecord(target, searchUrl, "FanCaps 找到条目但未解析到图片", {
@@ -451,16 +450,6 @@ function parseSearchResults(html, baseUrl) {
     if (url && !isBadTitle(title) && !results.has(url)) results.set(url, { url, title });
   });
   return [...results.values()];
-}
-
-function chooseFanCapsResult(results, target, config) {
-  if (results.length === 1) return results[0];
-
-  const titleKeys = new Set([target.name, target.nameCn, target.labelText].map(normalizeTitle).filter(Boolean));
-  const exact = results.filter((item) => titleKeys.has(normalizeTitle(item.title)));
-  if (exact.length === 1) return exact[0];
-  if (config.acceptFirstAmbiguous) return results[0];
-  throw new AmbiguousMatchError(`FanCaps 返回 ${results.length} 个候选，无法唯一确认；可人工复核或使用 --accept-first-ambiguous`);
 }
 
 async function collectShowImages(initialUrl, config) {
@@ -758,7 +747,7 @@ function printUsage() {
   --http-transport <方式>    fetch（默认）或 curl；Windows 本地抓取建议 curl
   --delay-ms <毫秒>          默认 1200，最小 500
   --max-title-candidates <n> 标题兜底最多尝试几个标题；默认 6
-  --accept-first-ambiguous   FanCaps 多候选且无法精确确认时选择第一项
+  --accept-first-ambiguous   存在 resolved 候选但并列时选择第一项；没有 resolved 候选时仍不选
 
 推荐先预检：
   npm run append-fancaps -- --bangumi-dump "D:\\dump\\subject.jsonlines" --dry-run

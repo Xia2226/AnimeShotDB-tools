@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>resolution-log.jsonl 查看器</title>
+  <style>
+    :root {
+      --bg: #f3f6fb;
+      --panel: #ffffff;
+      --border: #dbe2ec;
+      --text: #182230;
+      --muted: #667085;
+      --accent: #0f766e;
+      --accent-soft: #e6f4f2;
+      --danger: #b42318;
+      --danger-soft: #fef0ef;
+      --warning: #b54708;
+      --warning-soft: #fff4e5;
+      --info: #175cd3;
+      --info-soft: #eff4ff;
+      --radius: 8px;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    html {
+      overflow-y: scroll;
+      scrollbar-gutter: stable;
+    }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", Arial, sans-serif;
+      line-height: 1.55;
+    }
+    header {
+      background: #0b1f33;
+      color: #fff;
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+    }
+    header p {
+      margin: 2px 0 0;
+      color: #c8d7e8;
+      font-size: 12px;
+    }
+    .header-btn {
+      border: 1px solid #33536f;
+      background: #153049;
+      color: #fff;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .header-btn:hover {
+      background: #1d3c58;
+    }
+    .container {
+      max-width: 1240px;
+      margin: 22px auto;
+      padding: 0 20px 40px;
+    }
+    .drop-zone {
+      border: 2px dashed #a9b8cc;
+      background: var(--panel);
+      border-radius: var(--radius);
+      padding: 42px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .15s ease, background .15s ease;
+    }
+    .drop-zone.dragover,
+    .drop-zone:hover {
+      border-color: var(--accent);
+      background: #f7fffe;
+    }
+    .drop-zone strong {
+      font-size: 17px;
+    }
+    .drop-zone .hint {
+      color: var(--muted);
+      margin-top: 8px;
+      font-size: 14px;
+    }
+    .file-meta {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin: 18px 0;
+    }
+    @media (max-width: 640px) {
+      .stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    @media (max-width: 420px) {
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .stat-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+    }
+    .stat-card .value {
+      font-size: 28px;
+      font-weight: 800;
+      line-height: 1.15;
+    }
+    .stat-card .label {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 4px;
+    }
+    .stat-card.danger .value { color: var(--danger); }
+    .stat-card.warning .value { color: var(--warning); }
+    .stat-card.info .value { color: var(--info); }
+    .stat-card.accent .value { color: var(--accent); }
+    .section {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-top: 16px;
+      overflow: hidden;
+    }
+    .section-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .section-header h2 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .search-input {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 14px;
+      min-width: 220px;
+    }
+    .chip {
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      border-radius: 999px;
+      padding: 7px 12px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all .12s ease;
+    }
+    .chip.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .table-wrap {
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    th {
+      background: #f8fafc;
+      color: var(--muted);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .group-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 12px;
+      background: #fff;
+    }
+    .group-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      cursor: pointer;
+      flex-wrap: wrap;
+    }
+    .group-head:hover {
+      background: #fafcff;
+    }
+    .badge {
+      border-radius: 999px;
+      padding: 4px 9px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .badge.shared { background: var(--warning-soft); color: var(--warning); }
+    .badge.cross { background: var(--danger-soft); color: var(--danger); }
+    .badge.dup { background: var(--info-soft); color: var(--info); }
+    .badge.other { background: #eef2f6; color: #344054; }
+    .group-id {
+      font-weight: 700;
+      word-break: break-all;
+    }
+    .group-time {
+      color: var(--muted);
+      font-size: 12px;
+      margin-left: auto;
+    }
+    .toggle {
+      border: 1px solid var(--border);
+      background: #fff;
+      border-radius: 6px;
+      padding: 6px 10px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .group-body {
+      border-top: 1px solid var(--border);
+      padding: 14px;
+      display: grid;
+      gap: 16px;
+    }
+    .group-body h3 {
+      margin: 0 0 8px;
+      font-size: 14px;
+    }
+    .sub {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+    .judgement {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .judgement.resolved { background: #e7f6ec; color: #027a48; }
+    .judgement.unresolved { background: var(--warning-soft); color: var(--warning); }
+    .judgement.network_error { background: var(--danger-soft); color: var(--danger); }
+    .judgement.removed { background: var(--info-soft); color: var(--info); }
+    .judgement.processed { background: #eef2f6; color: #344054; }
+    .action-not-found {
+      color: var(--danger);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .evidence-list {
+      display: grid;
+      gap: 8px;
+    }
+    .evidence-item {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 10px;
+      background: #fafbfd;
+      font-size: 13px;
+    }
+    .evidence-item .query {
+      font-weight: 700;
+      word-break: break-all;
+    }
+    .evidence-item .error {
+      color: var(--danger);
+      word-break: break-all;
+    }
+    .url-list {
+      margin: 4px 0 0;
+      padding-left: 18px;
+    }
+    .url-list li {
+      margin: 3px 0;
+      word-break: break-all;
+    }
+    .url-list a {
+      color: var(--info);
+      text-decoration: none;
+    }
+    .raw-json {
+      background: #0d1117;
+      color: #d1e0ee;
+      border-radius: 6px;
+      padding: 12px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 12px;
+      overflow: auto;
+      max-height: 360px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    details {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #fbfcfe;
+      padding: 10px 12px;
+    }
+    summary {
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 13px;
+    }
+    .empty {
+      padding: 28px;
+      text-align: center;
+      color: var(--muted);
+    }
+    .error-box {
+      background: var(--danger-soft);
+      border: 1px solid #f4b8b3;
+      color: var(--danger);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      margin-top: 14px;
+      font-size: 13px;
+    }
+    .info-banner {
+      background: #eff8ff;
+      border: 1px solid #b2d9ff;
+      color: #1d4d7d;
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      margin-top: 14px;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    .info-banner strong {
+      color: #123b63;
+    }
+    .risk-line {
+      background: #fff8e6;
+      border: 1px solid #f4d68b;
+      border-radius: 6px;
+      padding: 10px 12px;
+      margin-top: 8px;
+      font-size: 13px;
+      color: #6a4a0a;
+    }
+    .risk-line .normal-note {
+      color: #0f766e;
+      font-weight: 700;
+      margin-top: 4px;
+    }
+    .rules-section {
+      margin-top: 16px;
+    }
+    .rules-body {
+      padding: 14px 16px;
+      display: grid;
+      gap: 10px;
+    }
+    .rule-item {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+    .rule-item .num {
+      background: var(--accent);
+      color: #fff;
+      border-radius: 999px;
+      min-width: 22px;
+      height: 22px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      margin-top: 2px;
+    }
+    .rule-item strong {
+      color: var(--text);
+    }
+    .example-block {
+      border-top: 1px solid var(--border);
+      padding: 14px 16px;
+      background: #fbfcfe;
+    }
+    .example-block h3 {
+      margin: 0 0 8px;
+      font-size: 15px;
+      color: var(--text);
+    }
+    .example-block p {
+      margin: 6px 0;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+    .example-block code {
+      background: #eef2f6;
+      border-radius: 4px;
+      padding: 2px 5px;
+      font-size: 13px;
+    }
+    .example-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 8px 0;
+      font-size: 13px;
+    }
+    .example-table th,
+    .example-table td {
+      border: 1px solid var(--border);
+      padding: 7px 10px;
+      text-align: left;
+    }
+    .example-table th {
+      background: #f3f6fb;
+      font-weight: 600;
+    }
+    .judgement-explain {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      margin-top: 8px;
+      font-size: 13px;
+      line-height: 1.7;
+      color: #344054;
+    }
+    .processed-hint {
+      color: #667085;
+      font-size: 12px;
+      margin-left: 6px;
+      display: inline;
+      line-height: 1.6;
+    }
+    .disposal-list {
+      margin: 6px 0 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 6px;
+    }
+    .disposal-list li {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 13px;
+    }
+    .explain-title,
+    .disposal-title {
+      font-weight: 700;
+      color: #344054;
+    }
+    .explain-text {
+      color: #475467;
+      margin-top: 3px;
+    }
+    .disposal-title {
+      margin-top: 10px;
+    }
+    .action-desc {
+      color: #475467;
+      font-size: 13px;
+    }
+    .field-tag {
+      display: inline-block;
+      background: #eef2f6;
+      color: #344054;
+      border-radius: 4px;
+      padding: 2px 6px;
+      margin: 2px 3px 2px 0;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .view {
+      animation: viewIn .18s ease;
+    }
+    @keyframes viewIn {
+      from {
+        opacity: 0;
+        transform: translateY(4px);
+      }
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>resolution-log.jsonl 查看器</h1>
+      <p>上传日志文件后，自动统计并展示每一组处理记录。</p>
+    </div>
+    <button id="backButton" class="header-btn hidden" type="button">返回首页</button>
+  </header>
+
+  <main class="container">
+    <div id="homeView" class="view">
+      <section class="section rules-section">
+      <div class="section-header">
+        <h2>本次处理规则说明</h2>
+      </div>
+      <div class="rules-body">
+        <div class="rule-item">
+          <span class="num">1</span>
+          <div>
+            <strong>共享图片：</strong>
+            同一个 FanCaps 图片 URL 如果同时出现在多部番剧中，通常来自站点侧栏、缩略图或抓取时混入的公共图片。
+            日志里显示“移除”是正常现象，不是数据错误。
+          </div>
+        </div>
+        <div class="rule-item">
+          <span class="num">2</span>
+          <div>
+            <strong>跨番 show_url 冲突：</strong>
+            同一个 FanCaps show 页面被多个 AniDB ID 共用时，会通过真实网页搜索确认哪一行与该页面最匹配。
+            保留最匹配的一条，其他无法独立匹配的行隔离为 <code>not_found</code>。
+          </div>
+        </div>
+        <div class="rule-item">
+          <span class="num">3</span>
+          <div>
+            <strong>重复 AniDB：</strong>
+            同一 AniDB ID 被多行使用时，能确认独立 AniDB/页面就拆分；
+            不能拆分的保留最匹配的一条，其余重复行隔离为 <code>not_found</code>。
+          </div>
+        </div>
+        <div class="rule-item">
+          <span class="num">4</span>
+          <div>
+            <strong>未找到独立页面：</strong>
+            如果搜索后仍无法找到该番剧自己的 FanCaps 页面，日志中的 <code>unresolved</code> 不代表处理失败，
+            而是按规则保留组内最匹配记录并隔离其他行。
+          </div>
+        </div>
+        <div class="rule-item">
+          <span class="num">5</span>
+          <div>
+            <strong>成人内容：</strong>
+            本次不处理成人内容放行，仍按原有过滤策略执行。
+          </div>
+        </div>
+        <div class="rule-item">
+          <span class="num">6</span>
+          <div>
+            <strong>网络错误：</strong>
+            如果某行遇到网络错误，会保留原样、不会误删；日志中会单独标记，可在网络恢复后重跑。
+          </div>
+        </div>
+      </div>
+      <div class="example-block">
+        <h3>简单示例：未找到独立页面</h3>
+        <p>
+          假设两组番剧都指向同一个 FanCaps 页面
+          <code>https://fancaps.net/anime/showimages.php?10368</code>。
+        </p>
+        <table class="example-table">
+          <thead>
+            <tr>
+              <th>题库行</th>
+              <th>番剧</th>
+              <th>搜索结果</th>
+              <th>处理结果</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>第 1153 行</td>
+              <td>我的狐仙女友</td>
+              <td>能匹配该页面</td>
+              <td>保留</td>
+            </tr>
+            <tr>
+              <td>第 2574 行</td>
+              <td>我的狐仙女友 ～真夏的大谢肉祭～</td>
+              <td>找不到独立页面</td>
+              <td>隔离为 <code>not_found</code></td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          <code>unresolved</code> 表示“没找到独立页面”，不代表处理失败；
+          最终按规则保留最匹配的一行，并隔离其他行，因此这组冲突仍然处理完成。
+        </p>
+      </div>
+      </section>
+
+      <div id="dropZone" class="drop-zone" tabindex="0" role="button" aria-label="上传 resolution-log.jsonl">
+        <strong>点击选择文件，或把 resolution-log.jsonl 拖到这里</strong>
+        <div class="hint">文件将只在当前浏览器内解析，不会上传到服务器。</div>
+        <input id="fileInput" type="file" accept=".jsonl,.json,application/json" class="hidden">
+        <div id="fileMeta" class="file-meta"></div>
+      </div>
+
+      <div id="sharedHint" class="info-banner hidden">
+        <strong>共享图片提示：</strong>
+        `image:42198` 这类 ID 是同一张 FanCaps 图片 URL 被多部番剧共用，通常来自站点侧栏、缩略图或抓取时混入的公共图片，不属于某部番剧。
+        日志中显示为“移除”是正常现象，不是数据错误。
+      </div>
+    </div>
+
+    <div id="resultView" class="view hidden">
+      <div class="section-header">
+        <h2>分析结果</h2>
+        <button id="reuploadButton" class="header-btn" type="button">重新上传</button>
+      </div>
+
+      <div id="summarySection" class="hidden">
+        <div class="stats-grid" id="statsGrid"></div>
+      </div>
+
+      <div id="categorySection" class="section hidden">
+        <div class="section-header">
+          <h2>分类统计</h2>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>类别</th>
+                <th>组数</th>
+                <th>隔离为 not_found 的行</th>
+                <th>含未解决成员</th>
+                <th>含网络错误</th>
+              </tr>
+            </thead>
+            <tbody id="categoryBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="listSection" class="section hidden">
+        <div class="section-header">
+          <h2>逐组记录</h2>
+          <div class="controls">
+            <input id="searchInput" class="search-input" type="search" placeholder="搜索组 ID、标题、关键词">
+            <button class="chip active" data-filter="all">全部</button>
+            <button class="chip" data-filter="sharedImageIds">共享图片</button>
+            <button class="chip" data-filter="crossAnidbShowUrls">跨番 show_url</button>
+            <button class="chip" data-filter="duplicateAnidbIds">重复 AniDB</button>
+            <button class="chip" data-filter="other">其他</button>
+          </div>
+        </div>
+        <div id="groupList"></div>
+      </div>
+    </div>
+
+    <div id="errorBox" class="error-box hidden"></div>
+  </main>
+
+  <script>
+    const dropZone = document.getElementById("dropZone");
+    const fileInput = document.getElementById("fileInput");
+    const fileMeta = document.getElementById("fileMeta");
+    const homeView = document.getElementById("homeView");
+    const resultView = document.getElementById("resultView");
+    const backButton = document.getElementById("backButton");
+    const reuploadButton = document.getElementById("reuploadButton");
+    const summarySection = document.getElementById("summarySection");
+    const categorySection = document.getElementById("categorySection");
+    const listSection = document.getElementById("listSection");
+    const statsGrid = document.getElementById("statsGrid");
+    const sharedHint = document.getElementById("sharedHint");
+    const categoryBody = document.getElementById("categoryBody");
+    const groupList = document.getElementById("groupList");
+    const searchInput = document.getElementById("searchInput");
+    const errorBox = document.getElementById("errorBox");
+    const chips = [...document.querySelectorAll(".chip")];
+
+    let records = [];
+    let currentFilter = "all";
+    let currentKeyword = "";
+
+    dropZone.addEventListener("click", () => fileInput.click());
+    dropZone.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        fileInput.click();
+      }
+    });
+    dropZone.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      dropZone.classList.add("dragover");
+    });
+    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
+    dropZone.addEventListener("drop", (event) => {
+      event.preventDefault();
+      dropZone.classList.remove("dragover");
+      const file = event.dataTransfer.files?.[0];
+      if (file) readFile(file);
+    });
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files?.[0];
+      if (file) readFile(file);
+    });
+    backButton.addEventListener("click", showHome);
+    reuploadButton.addEventListener("click", showHome);
+    searchInput.addEventListener("input", () => {
+      currentKeyword = searchInput.value.trim().toLocaleLowerCase();
+      renderList();
+    });
+    chips.forEach((chip) => {
+      chip.addEventListener("click", () => {
+        chips.forEach((item) => item.classList.remove("active"));
+        chip.classList.add("active");
+        currentFilter = chip.dataset.filter;
+        renderList();
+      });
+    });
+
+    async function readFile(file) {
+      try {
+        const text = await file.text();
+        const result = parseLog(text);
+        records = result.records;
+        fileMeta.textContent = `${file.name}  ${formatBytes(file.size)}  ${records.length} 条有效记录`;
+        errorBox.classList.add("hidden");
+        if (result.errors.length) {
+          errorBox.textContent = `有 ${result.errors.length} 行无法解析：${result.errors.slice(0, 5).join("；")}`;
+          errorBox.classList.remove("hidden");
+        }
+        renderAll();
+        if (records.length > 0) showView("result");
+        else showView("home");
+      } catch (error) {
+        records = [];
+        fileMeta.textContent = "";
+        errorBox.textContent = `读取或解析失败：${error.message}`;
+        errorBox.classList.remove("hidden");
+        showView("home");
+        renderAll();
+      }
+    }
+
+    function showHome() {
+      fileInput.value = "";
+      errorBox.classList.add("hidden");
+      showView("home");
+    }
+
+    function showView(name) {
+      const isResult = name === "result";
+      homeView.classList.toggle("hidden", isResult);
+      resultView.classList.toggle("hidden", !isResult);
+      backButton.classList.toggle("hidden", !isResult);
+    }
+
+    function parseLog(text) {
+      const errors = [];
+      let source = text.replace(/^\uFEFF/, "");
+      const trimmed = source.trim();
+      let lines = [];
+      if (trimmed.startsWith("[")) {
+        try {
+          const array = JSON.parse(trimmed);
+          if (Array.isArray(array)) return { records: array, errors: [] };
+        } catch (error) {
+          errors.push(`JSON 数组解析失败：${error.message}`);
+        }
+      }
+      lines = source.split(/\r?\n/).filter((line) => line.trim());
+      const records = [];
+      lines.forEach((line, index) => {
+        try {
+          records.push(JSON.parse(line));
+        } catch (error) {
+          errors.push(`第 ${index + 1} 行：${error.message}`);
+        }
+      });
+      return { records, errors };
+    }
+
+    function renderAll() {
+      renderStats();
+      renderCategoryTable();
+      renderList();
+      const hasRecords = records.length > 0;
+      const stats = analyze();
+      sharedHint.classList.toggle("hidden", !hasRecords || stats.shared === 0);
+      summarySection.classList.toggle("hidden", !hasRecords);
+      categorySection.classList.toggle("hidden", !hasRecords);
+      listSection.classList.toggle("hidden", !hasRecords);
+    }
+
+    function renderStats() {
+      const stats = analyze();
+      const cards = [
+        { value: stats.total, label: "总记录数", cls: "" },
+        { value: stats.affected, label: "受影响番剧数", cls: "warning" },
+        { value: stats.recovered, label: "恢复可入题库番剧", cls: "accent" },
+        { value: stats.shared, label: "共享图片组", cls: "warning" },
+        { value: stats.cross, label: "跨番 show_url 组", cls: "danger" },
+        { value: stats.dup, label: "重复 AniDB 组", cls: "info" },
+        { value: stats.dropped, label: "隔离为 not_found 行", cls: "danger" },
+        { value: stats.network, label: "网络错误组", cls: "warning" },
+        { value: stats.unresolved, label: "含未解决成员组", cls: "warning" }
+      ];
+      statsGrid.innerHTML = cards.map((card) => `
+        <div class="stat-card ${card.cls}">
+          <div class="value">${card.value}</div>
+          <div class="label">${card.label}</div>
+        </div>
+      `).join("");
+    }
+
+    function analyze() {
+      const stats = {
+        total: records.length,
+        shared: 0,
+        cross: 0,
+        dup: 0,
+        dropped: 0,
+        network: 0,
+        unresolved: 0,
+        affected: 0,
+        recovered: 0
+      };
+      const affectedBgm = new Set();
+      const recoveredBgm = new Set();
+      for (const record of records) {
+        if (record.category === "sharedImageIds") stats.shared += 1;
+        else if (record.category === "crossAnidbShowUrls") stats.cross += 1;
+        else if (record.category === "duplicateAnidbIds") stats.dup += 1;
+        const actions = Array.isArray(record.actions) ? record.actions : [];
+        stats.dropped += actions.filter((action) => action?.action === "not_found").length;
+        const notFoundLines = new Set(
+          actions.filter((action) => action?.action === "not_found").map((action) => String(action.line)),
+        );
+        const members = Array.isArray(record.members) ? record.members : [];
+        if (record.category === "crossAnidbShowUrls" || record.category === "duplicateAnidbIds") {
+          for (const member of members) {
+            const bgmId = member?.bgmId ?? member?.bgm_id;
+            if (bgmId === undefined || bgmId === null || bgmId === "") continue;
+            affectedBgm.add(String(bgmId));
+            if (!notFoundLines.has(String(member.line ?? member.lineNumber ?? ""))) {
+              recoveredBgm.add(String(bgmId));
+            }
+          }
+        }
+        if (members.some((member) => member?.judgement === "network_error")) stats.network += 1;
+        if (members.some((member) => member?.judgement === "unresolved")) stats.unresolved += 1;
+      }
+      stats.affected = affectedBgm.size;
+      stats.recovered = recoveredBgm.size;
+      return stats;
+    }
+
+    function renderCategoryTable() {
+      const stats = analyze();
+      const rows = [
+        { name: "sharedImageIds", label: "共享图片", count: stats.shared },
+        { name: "crossAnidbShowUrls", label: "跨番 show_url", count: stats.cross },
+        { name: "duplicateAnidbIds", label: "重复 AniDB", count: stats.dup }
+      ];
+      categoryBody.innerHTML = rows.map((row) => {
+        const recordsInCategory = records.filter((record) => record.category === row.name);
+        const dropped = recordsInCategory.flatMap((record) => record.actions || []).filter((action) => action?.action === "not_found").length;
+        const unresolved = recordsInCategory.filter((record) => (record.members || []).some((member) => member?.judgement === "unresolved")).length;
+        const network = recordsInCategory.filter((record) => (record.members || []).some((member) => member?.judgement === "network_error")).length;
+        return `
+          <tr>
+            <td>${row.label}</td>
+            <td>${row.count}</td>
+            <td>${dropped}</td>
+            <td>${unresolved}</td>
+            <td>${network}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function renderList() {
+      const filtered = records.filter((record) => {
+        if (currentFilter !== "all") {
+          if (currentFilter === "other" && ["sharedImageIds", "crossAnidbShowUrls", "duplicateAnidbIds"].includes(record.category)) return false;
+          if (currentFilter !== "other" && record.category !== currentFilter) return false;
+        }
+        if (!currentKeyword) return true;
+        const haystack = JSON.stringify(record).toLocaleLowerCase();
+        return haystack.includes(currentKeyword);
+      });
+      groupList.innerHTML = filtered.map(renderGroupCard).join("");
+    }
+
+    function renderGroupCard(record) {
+      const categoryClass = categoryClassOf(record.category);
+      const categoryLabel = categoryLabelOf(record.category);
+      const judgement = record.judgement || record.result || "processed";
+      return `
+        <div class="group-card" data-category="${escapeAttr(record.category || "")}">
+          <div class="group-head" onclick="toggleGroup(this)">
+            <span class="badge ${categoryClass}">${escapeHtml(categoryLabel)}</span>
+            <span class="group-id">${escapeHtml(record.groupId || record.showUrl || record.anidbId || "未知组")}</span>
+            <span class="group-time">${formatTime(record.recordedAt)}</span>
+            <button class="toggle">展开</button>
+          </div>
+          <div class="group-body hidden">
+            <div class="sub">
+              判断结果：
+              <span class="judgement ${escapeAttr(String(judgement))}">${escapeHtml(String(judgement))}</span>
+              ${record.judgement === "processed" ? `<span class="processed-hint">（这一组已按规则处理完成，不代表组内每行都保留）</span>` : ""}
+              ${record.risk ? renderRisk(record.risk) : ""}
+            </div>
+            ${renderJudgementExplanation(record)}
+            ${renderMembers(record)}
+            ${renderActions(record)}
+            ${renderEvidence(record)}
+            <details>
+              <summary>原始 JSON</summary>
+              <pre class="raw-json">${escapeHtml(JSON.stringify(record, null, 2))}</pre>
+            </details>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderMembers(record) {
+      const members = Array.isArray(record.members) ? record.members : [];
+      if (!members.length) return "";
+      const isShared = record.category === "sharedImageIds";
+      const idHeader = isShared ? "" : record.category === "duplicateAnidbIds" ? "bgm_id" : "bgm_id / anidb_id";
+      const rows = members.map((member) => {
+        const details = memberDetails(member);
+        const titleId = member.title || member.bgmId || member.imageId || (isShared ? record.groupId || "共享图片" : "-");
+        const judgement = member.judgement || (isShared ? "移除" : "-");
+        let idCell = "";
+        if (!isShared) {
+          const bgmId = member.bgmId ?? member.bgm_id ?? "-";
+          if (record.category === "duplicateAnidbIds") {
+            idCell = `<td class="member-ids">${escapeHtml(String(bgmId))}</td>`;
+          } else {
+            const anidbId = member.anidbId ?? member.anidb_id ?? "-";
+            idCell = `<td class="member-ids">${escapeHtml(`${bgmId} / ${anidbId}`)}</td>`;
+          }
+        }
+        return `
+          <tr>
+            <td>${escapeHtml(member.line ?? member.lineNumber ?? "-")}</td>
+            <td>${escapeHtml(String(titleId))}</td>
+            ${idCell}
+            <td><span class="judgement ${escapeAttr(String(judgement))}">${escapeHtml(String(judgement))}</span></td>
+            <td>${details}</td>
+          </tr>
+        `;
+      }).join("");
+      const idTh = idHeader ? `<th>${idHeader}</th>` : "";
+      return `
+        <div>
+          <h3>成员</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>行号</th><th>标题</th>${idTh}<th>判断</th><th>详情</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    function memberDetails(member) {
+      const parts = [];
+      const keys = ["beforeShowUrl", "afterShowUrl", "beforeAnidb", "afterAnidb", "suggestedAid", "indexes", "imageCount"];
+      for (const key of keys) {
+        const value = member[key];
+        if (value === undefined || value === null || value === "") continue;
+        if (key === "indexes") {
+          parts.push(`位置：${Array.isArray(value) ? value.join(", ") : value}`);
+        } else if (key === "beforeShowUrl" || key === "afterShowUrl") {
+          parts.push(`${key === "beforeShowUrl" ? "修改前" : "修改后"}：${value}`);
+        } else if (key === "beforeAnidb" || key === "afterAnidb") {
+          parts.push(`${key === "beforeAnidb" ? "原 AniDB" : "新 AniDB"}：${value}`);
+        } else if (key === "suggestedAid") {
+          parts.push(`建议 AniDB：${value}`);
+        } else {
+          parts.push(`${key}：${value}`);
+        }
+      }
+      if (member.reason) parts.push(`原因：${member.reason}`);
+      return parts.map((part) => `<div>${escapeHtml(part)}</div>`).join("");
+    }
+
+    function renderRisk(risk) {
+      const translation = translateRisk(risk);
+      const normalNote = /non-unique image IDs|共享图片/.test(risk)
+        ? `<div class="normal-note">提示：这是正常现象。</div>`
+        : "";
+      return `
+        <div class="risk-line">
+          <div>风险说明（原文）：${escapeHtml(risk)}</div>
+          <div>中文说明：${escapeHtml(translation)}</div>
+          ${normalNote}
+        </div>
+      `;
+    }
+
+    function renderJudgementExplanation(record) {
+      const category = record.category;
+      const members = Array.isArray(record.members) ? record.members : [];
+      const actions = Array.isArray(record.actions) ? record.actions : [];
+      const dropped = actions.filter((action) => action?.action === "not_found").length;
+      const resolvedMembers = members.filter((member) => member?.judgement === "resolved").length;
+      const unresolvedMembers = members.filter((member) => member?.judgement === "unresolved").length;
+      const networkMembers = members.filter((member) => member?.judgement === "network_error").length;
+      const specificLines = [];
+      const disposalLines = [];
+
+      if (category === "sharedImageIds") {
+        specificLines.push("该图片被多部番剧共用，无法归属于单独一部番剧，已统一移除。这是正常现象。");
+      } else if (category === "crossAnidbShowUrls") {
+        specificLines.push("这组记录原本共用同一个 FanCaps 页面。已保留与该页面最匹配的一行，其余无独立页面匹配的行隔离为 not_found。");
+      } else if (category === "duplicateAnidbIds") {
+        specificLines.push("同一 AniDB ID 原本被多行使用。能拆分的已拆分，无法拆分的保留最匹配一行，其余重复行隔离为 not_found。");
+      }
+
+      if (resolvedMembers > 0) {
+        disposalLines.push(`确认匹配并保留 ${resolvedMembers} 行。`);
+      }
+      if (dropped > 0) {
+        disposalLines.push(`隔离为 not_found 共 ${dropped} 行。`);
+      }
+      if (unresolvedMembers > 0) {
+        disposalLines.push(`有 ${unresolvedMembers} 行未找到可靠独立页面，已按规则处理。`);
+      }
+      if (networkMembers > 0) {
+        disposalLines.push(`有 ${networkMembers} 行遇到网络错误，已保留原样。`);
+      }
+      if (record.result === "resolved") {
+        disposalLines.push("冲突已全部处理完成（resolved）。");
+      }
+
+      const disposalHtml = disposalLines.length
+        ? `
+          <div>
+            <div class="disposal-title">处置结果</div>
+            <ol class="disposal-list">
+              ${disposalLines.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
+            </ol>
+          </div>
+        `
+        : "";
+
+      return `
+        <div class="judgement-explain">
+          <div>
+            <div class="explain-title">具体说明</div>
+            <div class="explain-text">${specificLines.map((line) => escapeHtml(line)).join("")}</div>
+          </div>
+          ${disposalHtml}
+        </div>
+      `;
+    }
+
+    function translateRisk(risk) {
+      if (/removed non-unique image IDs|no rows are expected to become empty/i.test(risk)) {
+        return "已移除非唯一图片 ID；清理后预计不会有任何行因为图片被移除而变空。";
+      }
+      if (/no_distinct_fancaps_show/.test(risk)) {
+        return "未找到该行的独立 FanCaps 页面，按约定保留组内最匹配的一条，其余记录被隔离。";
+      }
+      if (/duplicate_anidb_id/.test(risk)) {
+        return "同一 AniDB ID 存在多行，按约定保留最匹配的一条，其余重复记录被隔离。";
+      }
+      return "见上方英文风险说明。";
+    }
+
+    function renderActions(record) {
+      const actions = Array.isArray(record.actions) ? record.actions : [];
+      if (!actions.length) return "";
+      const rows = actions.map((action) => {
+        const actionText = action.action === "not_found" ? "隔离为 not_found" : action.action || "修改";
+        const className = action.action === "not_found" ? "action-not-found" : "";
+        const fields = Array.isArray(action.fields) ? action.fields : action.field ? [action.field] : [];
+        const fieldTags = fields.length
+          ? fields.map((field) => `<span class="field-tag">${escapeHtml(fieldLabel(field))}</span>`).join("")
+          : "-";
+        const description = actionDescription(action);
+        const finalDisposition = actions.some((item) => item.line === action.line && item.action === "not_found")
+          ? "移出最终题库"
+          : "保留";
+        return `
+          <tr>
+            <td>${escapeHtml(action.line ?? "-")}</td>
+            <td class="${className}">${escapeHtml(actionText)}</td>
+            <td class="action-desc">${escapeHtml(description)}</td>
+            <td>${fieldTags}</td>
+            <td>${escapeHtml(finalDisposition)}</td>
+          </tr>
+        `;
+      }).join("");
+      return `
+        <div>
+          <h3>操作</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>行号</th><th>动作</th><th>说明</th><th>涉及字段</th><th>最终去向</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    function fieldLabel(field) {
+      const labels = {
+        "fancaps.show_url": "页面 URL",
+        "fancaps.show_title": "页面标题",
+        "fancaps.search_url": "搜索地址",
+        "fancaps.search_query": "搜索关键词",
+        "fancaps.result_count": "搜索结果数",
+        "fancaps.show_pages_read": "读取页数",
+        "images": "图片列表",
+        "image_count": "图片数量",
+        "crawled_at": "处理时间",
+        "anidb_id": "AniDB ID",
+        "status": "状态"
+      };
+      return labels[field] || field;
+    }
+
+    function actionDescription(action) {
+      if (action.action === "not_found") {
+        return "清空图片并标记为 not_found，不再进入最终题库。";
+      }
+      if (action.action === "keep_pending_dedup") {
+        return "暂时保留，等待组内去重后决定最终去向。";
+      }
+      const fields = Array.isArray(action.fields) ? action.fields : action.field ? [action.field] : [];
+      const parts = [];
+      if (fields.includes("fancaps.show_url")) parts.push("规范化或更新页面 URL");
+      if (fields.includes("fancaps.show_title")) parts.push("确认页面标题");
+      if (fields.includes("images") || fields.includes("image_count")) parts.push("更新图片列表及数量");
+      if (fields.includes("crawled_at")) parts.push("更新处理时间");
+      if (fields.includes("anidb_id")) parts.push("确认或更新 AniDB ID");
+      if (fields.includes("status")) parts.push("更新状态");
+      return parts.length ? parts.join("；") : "重新确认相关字段";
+    }
+
+    function renderEvidence(record) {
+      const evidence = Array.isArray(record.evidence) ? record.evidence : [];
+      if (!evidence.length) return "";
+      const items = evidence.map((item) => {
+        let body = "";
+        if (item.error) {
+          body = `<div class="error">${escapeHtml(item.error)}</div>`;
+        } else {
+          const resultCount = item.resultCount ?? (Array.isArray(item.results) ? item.results.length : "-");
+          body = `<div>结果数：${escapeHtml(String(resultCount))}</div>`;
+          if (Array.isArray(item.results) && item.results.length) {
+            const urls = item.results.slice(0, 10).map((result) => {
+              const url = result.url || result.showUrl || "";
+              return `<li>${escapeHtml(result.title || "-")}${url ? ` <a href="${escapeAttr(url)}" target="_blank" rel="noreferrer">打开</a>` : ""}</li>`;
+            }).join("");
+            body += `<ul class="url-list">${urls}</ul>`;
+            if (item.results.length > 10) body += `<div class="sub">仅显示前 10 条，共 ${item.results.length} 条</div>`;
+          }
+        }
+        return `
+          <div class="evidence-item">
+            <div class="query">查询：${escapeHtml(item.query || item.searchQuery || "-")}</div>
+            ${body}
+          </div>
+        `;
+      }).join("");
+      return `
+        <details>
+          <summary>搜索依据（${evidence.length} 条）</summary>
+          <div class="evidence-list" style="margin-top:10px">${items}</div>
+        </details>
+      `;
+    }
+
+    function toggleGroup(head) {
+      const body = head.nextElementSibling;
+      const button = head.querySelector(".toggle");
+      if (!body) return;
+      const hidden = body.classList.toggle("hidden");
+      button.textContent = hidden ? "展开" : "收起";
+    }
+
+    function categoryClassOf(category) {
+      if (category === "sharedImageIds") return "shared";
+      if (category === "crossAnidbShowUrls") return "cross";
+      if (category === "duplicateAnidbIds") return "dup";
+      return "other";
+    }
+
+    function categoryLabelOf(category) {
+      if (category === "sharedImageIds") return "共享图片";
+      if (category === "crossAnidbShowUrls") return "跨番 show_url";
+      if (category === "duplicateAnidbIds") return "重复 AniDB";
+      return category || "其他";
+    }
+
+    function formatTime(value) {
+      const time = new Date(value);
+      if (Number.isNaN(time.getTime())) return value || "-";
+      return time.toLocaleString("zh-CN", { hour12: false });
+    }
+
+    function formatBytes(bytes) {
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value);
+    }
+  </script>
+</body>
+</html>
